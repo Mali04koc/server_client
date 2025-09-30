@@ -1,0 +1,63 @@
+1. Sezar Şifreleme (Caesar Cipher)
+En basit yöntem. Harfleri alfabede belli sayı kadar kaydırırsın.
+Örnek: Kaydırma = 3
+
+A → D
+B → E
+C → F
+MERHABA → PHUKDED
+
+Mantık: Her harfi alfabede 3 adım ileri kaydır. Z'den sonra başa dön (A'ya).
+
+2. Vigenere Cipher
+Sezar'ın gelişmiş hali. Tek kaydırma yerine, bir anahtar kelime kullanırsın ve her harf için farklı kaydırma yaparsın.
+Örnek:
+
+Metin: MERHABA
+Anahtar: ANAHTAR
+
+Her harfi sırayla şifrelerken:
+
+M + A (0 kaydırma) = M
+E + N (13 kaydırma) = R
+R + A (0 kaydırma) = R
+H + H (7 kaydırma) = O
+...ve böyle devam eder
+
+Mantık: Anahtar kelimesi tekrar tekrar kullanılır ve her harf kendi kaydırma değerini alır.
+
+3. Substitution Cipher (Yerine Koyma)
+Her harfi başka bir harfle değiştirirsin. Karışık bir eşleştirme tablosu yaparsın.
+Örnek:
+A → Q
+B → W
+C → E
+D → R
+...
+
+MERHABA → DTKIQWQ
+
+Mantık: Bir "anahtar harita" oluşturursun. Her harf için sabit bir yeni harf atarsın. Bu haritayı bilmeyen çözemez.
+
+4. Affine Cipher
+Matematiksel formül kullanır: (a × x + b) mod 26
+Örnek: a=5, b=8
+
+M harfi → 12. harf (0'dan başla)
+(5 × 12 + 8) mod 26 = 68 mod 26 = 16
+
+
+harf = Q
+
+
+
+Mantık: Her harfin sayısal değerini (A=0, B=1...) alır, matematiksel işlem yapar, yeni harf bulur.
+
+Özetle:
+
+Sezar: Hepsini aynı sayı kadar kaydır
+Vigenere: Her harfi farklı sayı kaydır (anahtar kelimeye göre)
+Substitution: Her harfi tamamen farklı bir harfle değiştir
+Affine: Matematiksel formülle dönüştür
+
+Hepsi "klasik" yöntemler, yani eski ve günümüzde güvenli değiller. Modern kriptografi bunlardan çok daha karmaşık! 🔐
