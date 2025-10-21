@@ -1,6 +1,12 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import threading
+import sys
+import os
+
+# Client sınıfını import et
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'SERVER-CLIENT'))
+from client import CryptoClient
 
 class CryptoGUI:
     def __init__(self, root):
@@ -114,6 +120,10 @@ class CryptoGUI:
         
         # Başlangıçta key frame'i gizle
         self.hide_key_frame()
+        
+        # Client bağlantısı
+        self.client = None
+        self.connected = False
     
     def on_crypto_method_change(self, event):
         """Şifreleme yöntemi değiştiğinde key gereksinimlerini kontrol et"""
@@ -183,32 +193,73 @@ class CryptoGUI:
             messagebox.showerror("Hata", f"{method} için key değeri giriniz!")
             return
         
-        # Mesaj gönderme simülasyonu
-        self.status_label.config(text="Mesaj gönderiliyor...", fg='#f39c12')
+        # Gerçek mesaj gönderme
+        self.status_label.config(text="Bağlanıyor...", fg='#f39c12')
         self.send_button.config(state='disabled')
         
-        # Threading ile gönderme simülasyonu
-        threading.Thread(target=self.simulate_send, daemon=True).start()
+        # Threading ile gerçek gönderme
+        threading.Thread(target=self.real_send, daemon=True).start()
     
-    def simulate_send(self):
-        """Mesaj gönderme simülasyonu"""
-        import time
-        time.sleep(2)  # 2 saniye bekleme simülasyonu
-        
-        # UI güncellemesi ana thread'de yapılmalı
-        self.root.after(0, self.send_complete)
+    def real_send(self):
+        """Gerçek mesaj gönderme"""
+        try:
+            # Client oluştur
+            self.client = CryptoClient()
+            
+            # Server'a bağlan
+            ip = self.ip_entry.get().strip()
+            port = int(self.port_entry.get().strip())
+            
+            self.root.after(0, lambda: self.status_label.config(text="Bağlanıyor...", fg='#f39c12'))
+            
+            if self.client.connect(ip, port):
+                self.connected = True
+                self.root.after(0, lambda: self.status_label.config(text="Bağlandı, mesaj gönderiliyor...", fg='#3498db'))
+                
+                # Mesajı gönder
+                message = self.message_text.get("1.0", tk.END).strip()
+                crypto_method = self.crypto_var.get()
+                key = self.key_entry.get().strip() if self.key_entry.get().strip() else None
+                
+                if self.client.send_message(message, crypto_method, key):
+                    # Cevap bekle
+                    response = self.client.receive_response(timeout=10)
+                    
+                    if response:
+                        self.root.after(0, lambda: self.send_success(response))
+                    else:
+                        self.root.after(0, lambda: self.send_error("Server'dan cevap alınamadı"))
+                else:
+                    self.root.after(0, lambda: self.send_error("Mesaj gönderilemedi"))
+                
+                # Bağlantıyı kes
+                self.client.disconnect()
+                self.connected = False
+                
+            else:
+                self.root.after(0, lambda: self.send_error("Server'a bağlanılamadı"))
+                
+        except Exception as e:
+            self.root.after(0, lambda: self.send_error(f"Bağlantı hatası: {str(e)}"))
     
-    def send_complete(self):
-        """Gönderme tamamlandığında UI'yi güncelle"""
+    def send_success(self, response):
+        """Başarılı gönderme"""
         self.status_label.config(text="Mesaj başarıyla gönderildi!", fg='#27ae60')
         self.send_button.config(state='normal')
         
         # Başarı mesajı
-        messagebox.showinfo("Başarılı", "Mesaj başarıyla gönderildi!\n\n" +
-                           f"IP: {self.ip_entry.get()}\n" +
-                           f"Port: {self.port_entry.get()}\n" +
-                           f"Şifreleme: {self.crypto_var.get()}\n" +
-                           f"Key: {self.key_entry.get() if self.key_entry.get() else 'Yok'}")
+        messagebox.showinfo("Başarılı", 
+                           f"✅ Mesaj başarıyla gönderildi!\n\n"
+                           f"📡 Server: {self.ip_entry.get()}:{self.port_entry.get()}\n"
+                           f"🔒 Şifreleme: {self.crypto_var.get()}\n"
+                           f"🔑 Key: {self.key_entry.get() if self.key_entry.get() else 'Yok'}\n"
+                           f"📨 Server Cevabı: {response.get('message', 'Cevap alındı')}")
+    
+    def send_error(self, error_message):
+        """Hata durumu"""
+        self.status_label.config(text=f"Hata: {error_message}", fg='#e74c3c')
+        self.send_button.config(state='normal')
+        messagebox.showerror("Hata", error_message)
     
     def clear_all(self):
         """Tüm alanları temizle"""
