@@ -19,8 +19,8 @@ class CryptoClient:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socket.settimeout(timeout)
             self.socket.connect((host, port))
-            # Bağlantı başarılı olduktan sonra timeout'u kaldır (veya daha uzun yap)
-            self.socket.settimeout(None)
+            # Bağlantı başarılı olduktan sonra timeout'u ayarla (varsayılan 30 saniye)
+            self.socket.settimeout(30.0)
             self.connected = True
             
             print(f"✅ Server'a bağlandı: {host}:{port}")
@@ -90,7 +90,7 @@ class CryptoClient:
             
             # JSON olarak gönder
             json_message = json.dumps(message_packet)
-            self.socket.send(json_message.encode('utf-8'))
+            self.socket.sendall(json_message.encode('utf-8'))  # sendall kullan (tüm veriyi gönder)
             
             print(f"📤 Mesaj gönderildi: {message[:50]}...")
             return True
@@ -132,31 +132,39 @@ class CryptoClient:
         if not self.connected or not self.socket:
             return None
         
+        old_timeout = None
         try:
             # Timeout ayarla
             old_timeout = self.socket.gettimeout()
             self.socket.settimeout(timeout)
             
+            # Veriyi al
             data = self.socket.recv(4096)
             
             # Timeout'u eski haline getir
-            self.socket.settimeout(old_timeout)
+            if old_timeout is not None:
+                self.socket.settimeout(old_timeout)
             
             if data:
-                response = json.loads(data.decode('utf-8'))
-                print(f"📨 Server cevabı: {response.get('message', 'Cevap alındı')}")
-                return response
+                try:
+                    response = json.loads(data.decode('utf-8'))
+                    print(f"📨 Server cevabı: {response.get('message', 'Cevap alındı')}")
+                    return response
+                except json.JSONDecodeError as e:
+                    print(f"❌ JSON decode hatası: {e}, Veri: {data[:100]}")
+                    return None
             else:
-                print("❌ Cevap alınamadı")
+                print("❌ Cevap alınamadı (boş veri)")
                 return None
                 
         except socket.timeout:
             print("⏰ Cevap zaman aşımı")
             # Timeout'u eski haline getir
-            try:
-                self.socket.settimeout(old_timeout)
-            except:
-                pass
+            if old_timeout is not None:
+                try:
+                    self.socket.settimeout(old_timeout)
+                except:
+                    pass
             return None
         except socket.error as e:
             print(f"❌ Socket hatası: {e}")

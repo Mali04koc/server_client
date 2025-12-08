@@ -17,14 +17,17 @@ except ImportError:
 
 from .model import Message, MessageRepository
 from .view import ClientGUIView
+import threading
+import time
 
 
 class ClientGUIController:
     """Client GUI Controller"""
     
-    def __init__(self, view: ClientGUIView, model: MessageRepository):
+    def __init__(self, view: ClientGUIView, model: MessageRepository, server=None):
         self.view = view
         self.model = model
+        self.server = server  # Server referansı (mesajları almak için)
         
         # Callback'leri bağla
         self.view.set_decrypt_callback(self.decrypt_message)
@@ -34,6 +37,9 @@ class ClientGUIController:
         
         # İlk yükleme
         self.refresh_messages()
+        
+        # Server'dan mesajları periyodik olarak kontrol et (her zaman başlat)
+        self._start_message_listener()
     
     def add_message(self, sender_ip: str, encrypted_content: str,
                    crypto_method: Optional[str] = None,
@@ -144,4 +150,114 @@ class ClientGUIController:
             item = self.view.message_tree.item(selection[0])
             return int(item['values'][0])
         return None
+    
+    def _start_message_listener(self):
+        """Server'dan mesajları dinle"""
+        def listener():
+            last_message_count = 0
+            while True:
+                try:
+                    if self.server:
+                        # Server'dan yeni mesajları al (doğrudan instance üzerinden)
+                        try:
+                            server_messages = self.server.get_messages()
+                            
+                            # Yeni mesajları kontrol et
+                            if len(server_messages) > last_message_count:
+                                # Yeni mesajlar var
+                                new_messages = server_messages[last_message_count:]
+                                
+                                for msg_data in new_messages:
+                                    # Yeni mesaj ekle
+                                    self.model.add_message(
+                                        sender_ip=msg_data['sender_ip'],
+                                        encrypted_content=msg_data['encrypted_content'],
+                                        crypto_method=msg_data.get('crypto_method'),
+                                        key=msg_data.get('key')
+                                    )
+                                
+                                last_message_count = len(server_messages)
+                                
+                                # GUI'yi güncelle
+                                self.view.root.after(0, self.refresh_messages)
+                        except (AttributeError, Exception) as e:
+                            # Server instance'ı yok veya hata, socket ile bağlanmayı dene
+                            new_count = self._connect_to_server_for_messages(last_message_count)
+                            if new_count > last_message_count:
+                                last_message_count = new_count
+                    else:
+                        # Server yok, socket ile bağlanmayı dene
+                        new_count = self._connect_to_server_for_messages(last_message_count)
+                        if new_count > last_message_count:
+                            last_message_count = new_count
+                    
+                    time.sleep(1)  # 1 saniyede bir kontrol et
+                except Exception as e:
+                    print(f"[HATA] Message listener hatasi: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    time.sleep(2)
+        
+        # Listener thread'ini başlat
+        listener_thread = threading.Thread(target=listener, daemon=True)
+        listener_thread.start()
+    
+    def _connect_to_server_for_messages(self, last_count=0):
+        """Server'a socket ile bağlanıp mesajları al"""
+        try:
+            import socket
+            import json
+            from datetime import datetime
+            
+            # Server'a bağlan
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(3)
+            sock.connect(('127.0.0.1', 8080))
+            
+            # Mesaj listesini iste
+            request = {
+                'type': 'get_messages',
+                'timestamp': datetime.now().isoformat()
+            }
+            sock.sendall(json.dumps(request).encode('utf-8'))
+            
+            # Cevabı al
+            sock.settimeout(3)
+            data = sock.recv(8192)
+            sock.close()
+            
+            if data:
+                response = json.loads(data.decode('utf-8'))
+                if response.get('type') == 'messages_response':
+                    messages = response.get('messages', [])
+                    
+                    # Yeni mesajları kontrol et
+                    if len(messages) > last_count:
+                        # Yeni mesajlar var
+                        new_messages = messages[last_count:]
+                        for msg_data in new_messages:
+                            # Timestamp'i datetime'a çevir
+                            timestamp = msg_data.get('timestamp')
+                            if isinstance(timestamp, str):
+                                try:
+                                    from datetime import datetime
+                                    timestamp = datetime.fromisoformat(timestamp)
+                                except:
+                                    timestamp = datetime.now()
+                            
+                            self.model.add_message(
+                                sender_ip=msg_data['sender_ip'],
+                                encrypted_content=msg_data['encrypted_content'],
+                                crypto_method=msg_data.get('crypto_method'),
+                                key=msg_data.get('key')
+                            )
+                        
+                        # GUI'yi güncelle
+                        self.view.root.after(0, self.refresh_messages)
+                        return len(messages)
+            
+            return last_count
+        except Exception as e:
+            # Bağlantı hatası, sessizce devam et
+            return last_count
 

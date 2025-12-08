@@ -49,11 +49,29 @@ except ImportError as e:
     traceback.print_exc()
     sys.exit(1)
 
+# Global server instance (client_gui için)
+_global_server_instance = None
+
 def start_server_thread():
     """Server'ı arka planda başlat"""
+    global _global_server_instance
     print("[SERVER] Server thread baslatiliyor...")
     try:
         crypto_server = CryptoServer('127.0.0.1', 8080)
+        _global_server_instance = crypto_server  # Global'e kaydet
+        
+        # Client_gui'ye server instance'ını iletmek için
+        try:
+            # client_gui modülünü import et
+            gui_dir = os.path.join(os.path.dirname(__file__), 'client_gui')
+            if gui_dir not in sys.path:
+                sys.path.insert(0, gui_dir)
+            from client_gui.main import set_server_instance
+            set_server_instance(crypto_server)
+            print("[OK] Server instance client_gui'ye iletildi")
+        except Exception as e:
+            print(f"[UYARI] client_gui'ye server instance iletilemedi: {e}")
+        
         crypto_server.start_server()
     except Exception as e:
         print(f"[HATA] Server hatasi: {e}")
@@ -86,6 +104,9 @@ def main():
         traceback.print_exc()
     
     print("\n[KAPAT] Program kapatildi")
+    
+    # Not: Client GUI'yi başlatmak için ayrı terminal'de çalıştırın:
+    # python client_gui/main.py
 
 if __name__ == "__main__":
     main()

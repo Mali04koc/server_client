@@ -11,6 +11,9 @@ class CryptoServer:
         self.server_socket = None
         self.clients = []
         self.running = False
+        # Mesajları saklamak için liste ve lock
+        self.message_queue = []
+        self.message_lock = threading.Lock()
         
     def start_server(self):
         """Server'ı başlat"""
@@ -116,6 +119,8 @@ class CryptoServer:
             self.handle_crypto_message(client_socket, client_address, message)
         elif message_type == 'ping':
             self.handle_ping(client_socket, client_address, message)
+        elif message_type == 'get_messages':
+            self.handle_get_messages(client_socket, client_address, message)
         else:
             self.handle_unknown_message(client_socket, client_address, message)
     
@@ -128,6 +133,20 @@ class CryptoServer:
         print(f"🔒 Şifreleme yöntemi: {crypto_method}")
         print(f"💬 Mesaj: {original_message}")
         print(f"🔑 Key: {key}")
+        
+        # Mesajı queue'ya ekle (client_gui için)
+        with self.message_lock:
+            message_data = {
+                'sender_ip': client_address[0],
+                'encrypted_content': original_message,
+                'crypto_method': crypto_method,
+                'key': key,
+                'timestamp': datetime.now()
+            }
+            self.message_queue.append(message_data)
+            # Son 100 mesajı tut (bellek yönetimi)
+            if len(self.message_queue) > 100:
+                self.message_queue.pop(0)
         
         # Server'dan cevap hazırla
         response = {
@@ -144,8 +163,27 @@ class CryptoServer:
         }
         
         # Cevabı gönder
-        client_socket.send(json.dumps(response).encode('utf-8'))
-        print(f"✅ Cevap gönderildi: {client_address}")
+        try:
+            response_json = json.dumps(response)
+            response_bytes = response_json.encode('utf-8')
+            client_socket.sendall(response_bytes)  # sendall kullan (tüm veriyi gönder)
+            print(f"✅ Cevap gönderildi: {client_address} ({len(response_bytes)} bytes)")
+        except BrokenPipeError:
+            print(f"⚠️ Client bağlantısı kapanmış: {client_address}")
+        except Exception as e:
+            print(f"❌ Cevap gönderme hatası {client_address}: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def get_messages(self):
+        """Mesaj queue'sunu al"""
+        with self.message_lock:
+            return self.message_queue.copy()
+    
+    def clear_messages(self):
+        """Mesaj queue'sunu temizle"""
+        with self.message_lock:
+            self.message_queue.clear()
     
     def handle_ping(self, client_socket, client_address, message):
         """Ping mesajını işle"""
@@ -155,8 +193,38 @@ class CryptoServer:
             'timestamp': datetime.now().isoformat(),
             'server_time': datetime.now().isoformat()
         }
-        client_socket.send(json.dumps(response).encode('utf-8'))
-        print(f"🏓 Pong gönderildi: {client_address}")
+        try:
+            client_socket.sendall(json.dumps(response).encode('utf-8'))
+            print(f"🏓 Pong gönderildi: {client_address}")
+        except Exception as e:
+            print(f"❌ Pong gönderme hatası {client_address}: {e}")
+    
+    def handle_get_messages(self, client_socket, client_address, message):
+        """Mesaj listesini isteyen client'a gönder"""
+        try:
+            with self.message_lock:
+                messages_copy = []
+                for msg in self.message_queue:
+                    messages_copy.append({
+                        'sender_ip': msg['sender_ip'],
+                        'encrypted_content': msg['encrypted_content'],
+                        'crypto_method': msg.get('crypto_method'),
+                        'key': msg.get('key'),
+                        'timestamp': msg['timestamp'].isoformat() if hasattr(msg['timestamp'], 'isoformat') else str(msg['timestamp'])
+                    })
+            
+            response = {
+                'type': 'messages_response',
+                'messages': messages_copy,
+                'count': len(messages_copy),
+                'timestamp': datetime.now().isoformat()
+            }
+            client_socket.sendall(json.dumps(response).encode('utf-8'))
+            print(f"📬 Mesaj listesi gönderildi: {client_address} ({len(messages_copy)} mesaj)")
+        except Exception as e:
+            print(f"❌ Mesaj listesi gönderme hatası {client_address}: {e}")
+            import traceback
+            traceback.print_exc()
     
     def handle_unknown_message(self, client_socket, client_address, message):
         """Bilinmeyen mesaj türünü işle"""

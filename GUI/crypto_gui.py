@@ -34,7 +34,8 @@ try:
     if client_dir not in sys.path:
         sys.path.insert(0, client_dir)
     
-    from server_client.client import CryptoClient
+    # Doğrudan client modülünü import et (server_client paket değil)
+    from client import CryptoClient
     # Print ifadesi kaldırıldı - launcher zaten stdout'u yönetiyor
     
 except ImportError as e:
@@ -290,18 +291,27 @@ class CryptoGUI:
                 
                 # Şifrelenmiş mesajı gönder
                 if client.send_message(encrypted_message, crypto_method, key):
-                    # Cevap bekle
+                    # Cevap bekle (server'ın cevap göndermesi için bekleme yok, direkt bekle)
                     response = client.receive_response(timeout=10)
                     
                     if response:
                         self.root.after(0, lambda r=response: self.send_success(r))
                     else:
-                        self.root.after(0, lambda: self.send_error("Server'dan cevap alınamadı"))
+                        self.root.after(0, lambda: self.send_error("Server'dan cevap alınamadı. Server çalışıyor mu kontrol edin."))
+                    
+                    # Bağlantıyı kes (cevap aldıktan SONRA)
+                    try:
+                        client.disconnect()
+                    except:
+                        pass
                 else:
                     self.root.after(0, lambda: self.send_error("Mesaj gönderilemedi"))
+                    # Bağlantıyı kes
+                    try:
+                        client.disconnect()
+                    except:
+                        pass
                 
-                # Bağlantıyı kes
-                client.disconnect()
                 self.connected = False
                 
             else:
