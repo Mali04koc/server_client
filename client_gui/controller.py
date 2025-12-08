@@ -2,6 +2,19 @@
 Controller - View ve Model arasındaki bağlantıyı kuran sınıf
 """
 from typing import Optional
+import sys
+import os
+
+# Şifre çözme yöntemlerini import et
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, project_root)
+
+try:
+    from crypto_methods import decrypt_message
+except ImportError:
+    decrypt_message = None
+    print("[UYARI] crypto_methods modulu bulunamadi, sifre cozme devre disi")
+
 from .model import Message, MessageRepository
 from .view import ClientGUIView
 
@@ -69,33 +82,20 @@ class ClientGUIController:
                          key: Optional[str]) -> str:
         """
         Şifre çözme işlemi
-        NOT: Bu sadece örnek bir implementasyon. 
-        Gerçek şifre çözme algoritmaları buraya eklenecek.
         """
         if not crypto_method:
             # Şifreleme yöntemi belirtilmemişse, mesajı olduğu gibi döndür
             return encrypted_content
         
-        # Basit örnek: Sezar şifresi çözme
-        if crypto_method == "Sezar Şifresi" and key:
+        # crypto_methods modülünü kullan
+        if decrypt_message:
             try:
-                shift = int(key)
-                decrypted = ""
-                for char in encrypted_content:
-                    if char.isalpha():
-                        if char.isupper():
-                            decrypted += chr((ord(char) - ord('A') - shift) % 26 + ord('A'))
-                        else:
-                            decrypted += chr((ord(char) - ord('a') - shift) % 26 + ord('a'))
-                    else:
-                        decrypted += char
-                return decrypted
-            except:
-                pass
-        
-        # Diğer şifreleme yöntemleri için placeholder
-        # Gerçek uygulamada burada tüm şifre çözme algoritmaları olacak
-        return f"[Cozuldu: {crypto_method}] {encrypted_content}"
+                return decrypt_message(encrypted_content, crypto_method, key)
+            except Exception as e:
+                raise ValueError(f"Şifre çözme hatası: {str(e)}")
+        else:
+            # Modül yüklenememişse, mesajı olduğu gibi döndür
+            return encrypted_content
     
     def delete_message(self, message_id: int):
         """Mesajı sil"""

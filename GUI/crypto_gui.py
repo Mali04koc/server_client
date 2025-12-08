@@ -4,6 +4,13 @@ import threading
 import sys
 import os
 
+# Şifreleme yöntemlerini import et
+try:
+    from crypto_methods import encrypt_message
+except ImportError:
+    encrypt_message = None
+    print("[UYARI] crypto_methods modulu bulunamadi, sifreleme devre disi")
+
 # Client sınıfını import et
 try:
     # Windows ve Linux/Mac için uyumlu path
@@ -265,12 +272,24 @@ class CryptoGUI:
                 self.connected = True
                 self.root.after(0, lambda: self.status_label.config(text="Bağlandı, mesaj gönderiliyor...", fg='#3498db'))
                 
-                # Mesajı gönder
-                message = self.message_text.get("1.0", tk.END).strip()
+                # Mesajı al ve şifrele
+                original_message = self.message_text.get("1.0", tk.END).strip()
                 crypto_method = self.crypto_var.get()
                 key = self.key_entry.get().strip() if self.key_entry.get().strip() else None
                 
-                if client.send_message(message, crypto_method, key):
+                # Şifreleme işlemi
+                encrypted_message = original_message
+                if crypto_method and encrypt_message:
+                    try:
+                        encrypted_message = encrypt_message(original_message, crypto_method, key)
+                        self.root.after(0, lambda: self.status_label.config(
+                            text=f"Mesaj sifrelendi: {crypto_method}", fg='#3498db'))
+                    except Exception as e:
+                        self.root.after(0, lambda: self.send_error(f"Sifreleme hatasi: {str(e)}"))
+                        return
+                
+                # Şifrelenmiş mesajı gönder
+                if client.send_message(encrypted_message, crypto_method, key):
                     # Cevap bekle
                     response = client.receive_response(timeout=10)
                     
