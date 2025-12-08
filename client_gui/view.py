@@ -206,14 +206,30 @@ class ClientGUIView:
         )
         self.encrypted_text.pack(fill=tk.X, pady=(0, 10))
         
-        # Çözülmüş mesaj
+        # Çözülmüş mesaj başlığı ve Decode butonu
+        decrypted_header_frame = tk.Frame(detail_content, bg='#f0f0f0')
+        decrypted_header_frame.pack(fill=tk.X, pady=(0, 5))
+        
         tk.Label(
-            detail_content,
+            decrypted_header_frame,
             text="Cozulmus Mesaj:",
             font=('Arial', 10, 'bold'),
             bg='#f0f0f0',
             fg='#2c3e50'
-        ).pack(anchor='w', pady=(0, 5))
+        ).pack(side=tk.LEFT, padx=(0, 10))
+        
+        self.decrypt_button = tk.Button(
+            decrypted_header_frame,
+            text="Decode",
+            font=('Arial', 11, 'bold'),
+            bg='#27ae60',
+            fg='white',
+            command=self._on_decrypt,
+            width=12,
+            height=1,
+            state='disabled'
+        )
+        self.decrypt_button.pack(side=tk.LEFT)
         
         self.decrypted_text = scrolledtext.ScrolledText(
             detail_content,
@@ -226,22 +242,9 @@ class ClientGUIView:
         )
         self.decrypted_text.pack(fill=tk.X, pady=(0, 10))
         
-        # Butonlar
+        # Butonlar (Sil butonu için)
         action_frame = tk.Frame(detail_content, bg='#f0f0f0')
         action_frame.pack(fill=tk.X)
-        
-        self.decrypt_button = tk.Button(
-            action_frame,
-            text="Mesaji Coz",
-            font=('Arial', 12, 'bold'),
-            bg='#27ae60',
-            fg='white',
-            command=self._on_decrypt,
-            width=15,
-            height=2,
-            state='disabled'
-        )
-        self.decrypt_button.pack(side=tk.LEFT, padx=(0, 10))
         
         self.delete_button = tk.Button(
             action_frame,
@@ -281,7 +284,7 @@ class ClientGUIView:
             if item['values'][4] == "Cozuldu":  # Durum kontrolü
                 self.decrypt_button.config(state='disabled', text="Cozuldu")
             else:
-                self.decrypt_button.config(state='normal', text="Mesaji Coz")
+                self.decrypt_button.config(state='normal', text="Decode")
             self.delete_button.config(state='normal')
         else:
             self.decrypt_button.config(state='disabled')
@@ -394,10 +397,10 @@ class ClientGUIView:
             self.decrypted_text.insert('1.0', message.decrypted_content)
             self.decrypt_button.config(state='disabled', text="Cozuldu")
         else:
-            self.decrypted_text.insert('1.0', "Mesaj henuz cozulmedi...\n\nMesaji cozmek icin 'Mesaji Coz' butonuna tiklayin.")
+            self.decrypted_text.insert('1.0', "Mesaj henuz cozulmedi...\n\nMesaji cozmek icin 'Decode' butonuna tiklayin.")
             # Şifreleme yöntemi varsa butonu aktif et
             if message.crypto_method:
-                self.decrypt_button.config(state='normal', text="Mesaji Coz")
+                self.decrypt_button.config(state='normal', text="Decode")
             else:
                 self.decrypt_button.config(state='disabled', text="Sifreleme yontemi yok")
         self.decrypted_text.config(state='disabled')
@@ -416,7 +419,7 @@ class ClientGUIView:
         self.decrypted_text.delete('1.0', tk.END)
         self.decrypted_text.config(state='disabled')
         
-        self.decrypt_button.config(state='disabled', text="Mesaji Coz")
+        self.decrypt_button.config(state='disabled', text="Decode")
         self.delete_button.config(state='disabled')
     
     def update_status(self, text: str, color: str = '#27ae60'):
