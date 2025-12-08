@@ -21,6 +21,7 @@ class ClientGUIView:
         self.on_delete_callback: Optional[Callable] = None
         self.on_clear_all_callback: Optional[Callable] = None
         self.on_refresh_callback: Optional[Callable] = None
+        self.on_message_select_callback: Optional[Callable] = None
         
         self._create_widgets()
     
@@ -164,6 +165,27 @@ class ClientGUIView:
         )
         self.method_label.pack(side=tk.LEFT)
         
+        # Key bilgisi
+        key_frame = tk.Frame(detail_content, bg='#f0f0f0')
+        key_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        tk.Label(
+            key_frame,
+            text="Key:",
+            font=('Arial', 10, 'bold'),
+            bg='#f0f0f0',
+            fg='#2c3e50'
+        ).pack(side=tk.LEFT, padx=(0, 10))
+        
+        self.key_label_detail = tk.Label(
+            key_frame,
+            text="-",
+            font=('Arial', 10),
+            bg='#f0f0f0',
+            fg='#34495e'
+        )
+        self.key_label_detail.pack(side=tk.LEFT)
+        
         # Şifreli mesaj
         tk.Label(
             detail_content,
@@ -250,11 +272,21 @@ class ClientGUIView:
         if selection:
             item = self.message_tree.item(selection[0])
             message_id = int(item['values'][0])
-            self.decrypt_button.config(state='normal')
+            
+            # Mesaj detaylarını göster (callback ile)
+            if hasattr(self, 'on_message_select_callback') and self.on_message_select_callback:
+                self.on_message_select_callback(message_id)
+            
+            # Butonları aktif et
+            if item['values'][4] == "Cozuldu":  # Durum kontrolü
+                self.decrypt_button.config(state='disabled', text="Cozuldu")
+            else:
+                self.decrypt_button.config(state='normal', text="Mesaji Coz")
             self.delete_button.config(state='normal')
         else:
             self.decrypt_button.config(state='disabled')
             self.delete_button.config(state='disabled')
+            self.clear_message_details()
     
     def _on_decrypt(self):
         """Çöz butonuna tıklandığında"""
@@ -300,6 +332,10 @@ class ClientGUIView:
         """Yenile callback'ini ayarla"""
         self.on_refresh_callback = callback
     
+    def set_message_select_callback(self, callback: Callable):
+        """Mesaj seçildiğinde çağrılacak callback'i ayarla"""
+        self.on_message_select_callback = callback
+    
     def update_message_list(self, messages: list):
         """Mesaj listesini güncelle"""
         # Mevcut öğeleri temizle
@@ -333,13 +369,22 @@ class ClientGUIView:
     
     def show_message_details(self, message):
         """Mesaj detaylarını göster"""
-        self.ip_label.config(text=message.sender_ip or "-")
-        self.method_label.config(text=message.crypto_method or "-")
+        # IP adresi
+        ip_text = message.sender_ip if message.sender_ip else "-"
+        self.ip_label.config(text=ip_text)
+        
+        # Şifreleme yöntemi
+        method_text = message.crypto_method if message.crypto_method else "-"
+        self.method_label.config(text=method_text)
+        
+        # Key bilgisi
+        key_text = message.key if message.key else "-"
+        self.key_label_detail.config(text=key_text)
         
         # Şifreli mesaj
         self.encrypted_text.config(state='normal')
         self.encrypted_text.delete('1.0', tk.END)
-        self.encrypted_text.insert('1.0', message.encrypted_content)
+        self.encrypted_text.insert('1.0', message.encrypted_content or "")
         self.encrypted_text.config(state='disabled')
         
         # Çözülmüş mesaj
@@ -349,14 +394,19 @@ class ClientGUIView:
             self.decrypted_text.insert('1.0', message.decrypted_content)
             self.decrypt_button.config(state='disabled', text="Cozuldu")
         else:
-            self.decrypted_text.insert('1.0', "Mesaj henuz cozulmedi...")
-            self.decrypt_button.config(state='normal', text="Mesaji Coz")
+            self.decrypted_text.insert('1.0', "Mesaj henuz cozulmedi...\n\nMesaji cozmek icin 'Mesaji Coz' butonuna tiklayin.")
+            # Şifreleme yöntemi varsa butonu aktif et
+            if message.crypto_method:
+                self.decrypt_button.config(state='normal', text="Mesaji Coz")
+            else:
+                self.decrypt_button.config(state='disabled', text="Sifreleme yontemi yok")
         self.decrypted_text.config(state='disabled')
     
     def clear_message_details(self):
         """Mesaj detaylarını temizle"""
         self.ip_label.config(text="-")
         self.method_label.config(text="-")
+        self.key_label_detail.config(text="-")
         
         self.encrypted_text.config(state='normal')
         self.encrypted_text.delete('1.0', tk.END)

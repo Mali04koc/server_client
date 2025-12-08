@@ -34,6 +34,7 @@ class ClientGUIController:
         self.view.set_delete_callback(self.delete_message)
         self.view.set_clear_all_callback(self.clear_all_messages)
         self.view.set_refresh_callback(self.refresh_messages)
+        self.view.set_message_select_callback(self._show_message_details)
         
         # İlk yükleme
         self.refresh_messages()
