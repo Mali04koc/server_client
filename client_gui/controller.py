@@ -64,7 +64,7 @@ class ClientGUIController:
             return
         
         if message.is_decrypted:
-            self.view.show_info("Bu mesaj zaten cozulmus!")
+            self.view.show_info("Bu mesaj zaten çözülmüş!")
             return
         
         # Şifre çözme işlemi (şimdilik basit bir örnek)
@@ -79,10 +79,10 @@ class ClientGUIController:
             self.model.update_message(message_id, decrypted)
             self.refresh_messages()
             self._show_message_details(message_id)
-            self.view.update_status("Mesaj basariyla cozuldu!", '#27ae60')
+            self.view.update_status("Mesaj başarıyla çözüldü", '#27ae60')
         except Exception as e:
-            self.view.show_error(f"Mesaj cozulemedi: {str(e)}")
-            self.view.update_status("Mesaj cozme hatasi!", '#e74c3c')
+            self.view.show_error(f"Mesaj çözülemedi: {str(e)}")
+            self.view.update_status("Mesaj çözme hatası!", '#e74c3c')
     
     def _decrypt_content(self, encrypted_content: str, 
                          crypto_method: Optional[str],

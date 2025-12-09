@@ -61,7 +61,7 @@ class ClientGUIView:
         # Temizle butonu
         self.clear_button = tk.Button(
             button_frame,
-            text="Tumunu Temizle",
+            text="Tümünü Temizle",
             font=('Arial', 10, 'bold'),
             bg='#e74c3c',
             fg='white',
@@ -82,20 +82,21 @@ class ClientGUIView:
         list_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
         
         # Treeview (mesaj listesi)
-        columns = ('ID', 'Gonderen IP', 'Mesaj (Ozet)', 'Zaman', 'Durum')
+        # Treeview kolon anahtarları başlıklarla birebir aynı olmalı
+        columns = ('ID', 'Gönderen IP', 'Mesaj (Özet)', 'Zaman', 'Durum')
         self.message_tree = ttk.Treeview(list_frame, columns=columns, show='headings', height=10)
         
         # Sütun başlıkları
         self.message_tree.heading('ID', text='ID')
-        self.message_tree.heading('Gonderen IP', text='Gonderen IP')
-        self.message_tree.heading('Mesaj (Ozet)', text='Mesaj (Ozet)')
+        self.message_tree.heading('Gönderen IP', text='Gönderen IP')
+        self.message_tree.heading('Mesaj (Özet)', text='Mesaj (Özet)')
         self.message_tree.heading('Zaman', text='Zaman')
         self.message_tree.heading('Durum', text='Durum')
         
         # Sütun genişlikleri
         self.message_tree.column('ID', width=50, anchor='center')
-        self.message_tree.column('Gonderen IP', width=150, anchor='center')
-        self.message_tree.column('Mesaj (Ozet)', width=300, anchor='w')
+        self.message_tree.column('Gönderen IP', width=150, anchor='center')
+        self.message_tree.column('Mesaj (Özet)', width=300, anchor='w')
         self.message_tree.column('Zaman', width=150, anchor='center')
         self.message_tree.column('Durum', width=100, anchor='center')
         
@@ -112,7 +113,7 @@ class ClientGUIView:
         # Mesaj detayları frame
         detail_frame = tk.LabelFrame(
             main_frame,
-            text="Mesaj Detaylari",
+            text="Mesaj Detayları",
             font=('Arial', 12, 'bold'),
             bg='#f0f0f0',
             fg='#34495e'
@@ -129,7 +130,7 @@ class ClientGUIView:
         
         tk.Label(
             ip_frame,
-            text="Gonderen IP:",
+            text="Gönderen IP:",
             font=('Arial', 10, 'bold'),
             bg='#f0f0f0',
             fg='#2c3e50'
@@ -150,7 +151,7 @@ class ClientGUIView:
         
         tk.Label(
             method_frame,
-            text="Sifreleme Yontemi:",
+            text="Şifreleme Yöntemi:",
             font=('Arial', 10, 'bold'),
             bg='#f0f0f0',
             fg='#2c3e50'
@@ -189,7 +190,7 @@ class ClientGUIView:
         # Şifreli mesaj
         tk.Label(
             detail_content,
-            text="Sifreli Mesaj:",
+            text="Şifreli Mesaj:",
             font=('Arial', 10, 'bold'),
             bg='#f0f0f0',
             fg='#2c3e50'
@@ -212,7 +213,7 @@ class ClientGUIView:
         
         tk.Label(
             decrypted_header_frame,
-            text="Cozulmus Mesaj:",
+            text="Çözülmüş Mesaj:",
             font=('Arial', 10, 'bold'),
             bg='#f0f0f0',
             fg='#2c3e50'
@@ -220,7 +221,7 @@ class ClientGUIView:
         
         self.decrypt_button = tk.Button(
             decrypted_header_frame,
-            text="Decode",
+            text="Çöz",
             font=('Arial', 11, 'bold'),
             bg='#27ae60',
             fg='white',
@@ -262,7 +263,7 @@ class ClientGUIView:
         # Durum çubuğu
         self.status_label = tk.Label(
             main_frame,
-            text="Hazir",
+            text="Hazır",
             font=('Arial', 10),
             bg='#f0f0f0',
             fg='#27ae60'
@@ -282,9 +283,9 @@ class ClientGUIView:
             
             # Butonları aktif et
             if item['values'][4] == "Cozuldu":  # Durum kontrolü
-                self.decrypt_button.config(state='disabled', text="Cozuldu")
+                self.decrypt_button.config(state='disabled', text="Çözüldü")
             else:
-                self.decrypt_button.config(state='normal', text="Decode")
+                self.decrypt_button.config(state='normal', text="Çöz")
             self.delete_button.config(state='normal')
         else:
             self.decrypt_button.config(state='disabled')
@@ -395,14 +396,14 @@ class ClientGUIView:
         self.decrypted_text.delete('1.0', tk.END)
         if message.is_decrypted and message.decrypted_content:
             self.decrypted_text.insert('1.0', message.decrypted_content)
-            self.decrypt_button.config(state='disabled', text="Cozuldu")
+            self.decrypt_button.config(state='disabled', text="Çözüldü")
         else:
-            self.decrypted_text.insert('1.0', "Mesaj henuz cozulmedi...\n\nMesaji cozmek icin 'Decode' butonuna tiklayin.")
+            self.decrypted_text.insert('1.0', "Mesaj henüz çözülmedi...\n\nMesajı çözmek için Çöz butonuna tıklayın")
             # Şifreleme yöntemi varsa butonu aktif et
             if message.crypto_method:
-                self.decrypt_button.config(state='normal', text="Decode")
+                self.decrypt_button.config(state='normal', text="Çöz")
             else:
-                self.decrypt_button.config(state='disabled', text="Sifreleme yontemi yok")
+                self.decrypt_button.config(state='disabled', text="Şifreleme Yöntemi Yok")
         self.decrypted_text.config(state='disabled')
     
     def clear_message_details(self):
@@ -419,7 +420,7 @@ class ClientGUIView:
         self.decrypted_text.delete('1.0', tk.END)
         self.decrypted_text.config(state='disabled')
         
-        self.decrypt_button.config(state='disabled', text="Decode")
+        self.decrypt_button.config(state='disabled', text="Çöz")
         self.delete_button.config(state='disabled')
     
     def update_status(self, text: str, color: str = '#27ae60'):
