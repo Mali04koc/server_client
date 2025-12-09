@@ -115,6 +115,7 @@ class CryptoGUI:
             "Rotate Şifresi",
             "Columnar Transposition",
             "Hill Şifresi",
+            "AES",
             "GCD Şifresi",
             "Verman Şifresi",
             "Otopi Şifresi"
@@ -188,6 +189,7 @@ class CryptoGUI:
             "Rotate Şifresi": "Döndürme Miktarı",
             "Columnar Transposition": "Anahtar Kelime",
             "Hill Şifresi": "Matris (örn: 2x2)",
+            "AES": "16 byte key (örn: 16 karakter)",
             "GCD Şifresi": "GCD Değeri",
             "Verman Şifresi": "Anahtar",
             "Otopi Şifresi": "Özel Anahtar"
@@ -235,7 +237,7 @@ class CryptoGUI:
         key_required_methods = ["Sezar Şifresi", "Playfair Şifresi", "Vigenere Şifresi", 
                                "Substitution Şifresi", "Affine Şifresi", "Rail Fence Şifresi",
                                "Rotate Şifresi", "Columnar Transposition", "Hill Şifresi",
-                               "GCD Şifresi", "Verman Şifresi", "Otopi Şifresi"]
+                               "AES", "GCD Şifresi", "Verman Şifresi", "Otopi Şifresi"]
         
         key_text = self.key_entry.get().strip()
         if method in key_required_methods and not key_text:
@@ -249,6 +251,16 @@ class CryptoGUI:
                     "Hata",
                     "Hill Şifresi için key formatı: virgülle ayrılmış tam sayılar.\n"
                     "Örn (3x3): 6,24,1,13,16,10,20,17,15"
+                )
+                return
+
+        # AES için key kontrolü
+        if method == "AES":
+            if len(key_text.encode("utf-8")) != 16:
+                messagebox.showerror(
+                    "Hata",
+                    "AES için key 16 byte (128-bit) olmalı.\n"
+                    "Örn: 16 karakterlik bir anahtar girin."
                 )
                 return
         
