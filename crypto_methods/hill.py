@@ -1,6 +1,10 @@
-"""
+""" 
 Hill Şifresi (Matris tabanlı)
-Key: 2x2 veya 3x3 matris (örn: 2x2 için: 5,17,8,3)
+Key: NxN matris (örn: 2x2 için: 5,17,8,3 | 3x3 için 9 değer)
+
+Notlar:
+- Matris boyutu, key içindeki eleman sayısının karekökü olmalı (4, 9, 16, ...).
+- Determinant 26 ile aralarında asal olmalı; aksi halde mod 26'da ters alınamaz.
 """
 import re
 import math
@@ -13,186 +17,171 @@ def _gcd(a: int, b: int) -> int:
     return a
 
 
-def _determinant_2x2(matrix: list) -> int:
-    """2x2 matris determinantı"""
-    return matrix[0][0] * matrix[1][1] - matrix[0][1] * matrix[1][0]
+def _is_square(n: int) -> bool:
+    """n mükemmel kare mi?"""
+    root = int(math.isqrt(n))
+    return root * root == n
 
 
-def _determinant_3x3(matrix: list) -> int:
-    """3x3 matris determinantı"""
-    a, b, c = matrix[0]
-    d, e, f = matrix[1]
-    g, h, i = matrix[2]
-    return a*(e*i - f*h) - b*(d*i - f*g) + c*(d*h - e*g)
+def _minor(matrix: list, i: int, j: int) -> list:
+    """Kofaktör için minor matrisini döndür"""
+    return [row[:j] + row[j + 1 :] for idx, row in enumerate(matrix) if idx != i]
 
 
-def _adjoint_2x2(matrix: list) -> list:
-    """2x2 matris adjoint"""
-    return [[matrix[1][1], -matrix[0][1]],
-            [-matrix[1][0], matrix[0][0]]]
+def _determinant_bareiss(matrix: list, mod: int = None) -> int:
+    """
+    Tam sayılı determinant (Bareiss algoritması).
+    Mod verilirse ara sonuçlar mod ile sınırlandırılır.
+    """
+    n = len(matrix)
+    if n == 1:
+        return matrix[0][0]
+    # Derin kopya
+    a = [row[:] for row in matrix]
+    denom = 1
+    for k in range(n - 1):
+        pivot = a[k][k]
+        if pivot == 0:
+            # Alt satırlardan pivot bul
+            for r in range(k + 1, n):
+                if a[r][k] != 0:
+                    a[k], a[r] = a[r], a[k]
+                    pivot = a[k][k]
+                    break
+            else:
+                return 0
+        for i in range(k + 1, n):
+            for j in range(k + 1, n):
+                num = a[k][k] * a[i][j] - a[i][k] * a[k][j]
+                if denom != 1:
+                    num //= denom
+                if mod:
+                    num %= mod
+                a[i][j] = num
+        denom = pivot if pivot != 0 else 1
+    det = a[-1][-1]
+    if mod:
+        det %= mod
+    return det
 
 
-def _adjoint_3x3(matrix: list) -> list:
-    """3x3 matris adjoint"""
-    a, b, c = matrix[0]
-    d, e, f = matrix[1]
-    g, h, i = matrix[2]
-    
-    return [
-        [e*i - f*h, -(b*i - c*h), b*f - c*e],
-        [-(d*i - f*g), a*i - c*g, -(a*f - c*d)],
-        [d*h - e*g, -(a*h - b*g), a*e - b*d]
-    ]
+def _adjugate(matrix: list) -> list:
+    """Genel NxN adjugate (kofaktörlerin transpozu)"""
+    n = len(matrix)
+    if n == 1:
+        return [[1]]
+    cofactors = [[0] * n for _ in range(n)]
+    for i in range(n):
+        for j in range(n):
+            minor = _minor(matrix, i, j)
+            # Küçük determinantı hesapla (mod kullanılmaz burada)
+            cof_det = _determinant_bareiss(minor)
+            sign = -1 if (i + j) % 2 else 1
+            cofactors[i][j] = sign * cof_det
+    # Transpoz
+    adj = [[cofactors[j][i] for j in range(n)] for i in range(n)]
+    return adj
 
 
 def _mod_inverse_matrix(matrix: list, mod: int = 26) -> list:
-    """Matrisin modüler tersini bul"""
+    """Matrisin modüler tersini bul (NxN)"""
     size = len(matrix)
-    
-    # Determinant hesapla
-    if size == 2:
-        det = _determinant_2x2(matrix) % mod
-    elif size == 3:
-        det = _determinant_3x3(matrix) % mod
-    else:
-        raise ValueError("Sadece 2x2 ve 3x3 matrisler destekleniyor")
-    
-    # Determinant ve mod aralarında asal olmalı
+    det = _determinant_bareiss(matrix, mod) % mod
     if _gcd(det, mod) != 1:
         raise ValueError("Matris determinantı mod ile aralarında asal değil")
-    
     # Determinantın modüler tersi
     det_inv = None
     for x in range(1, mod):
         if (det * x) % mod == 1:
             det_inv = x
             break
-    
     if det_inv is None:
         raise ValueError("Determinantın modüler tersi bulunamadı")
-    
-    # Adjoint matris
-    if size == 2:
-        adj = _adjoint_2x2(matrix)
-    else:
-        adj = _adjoint_3x3(matrix)
-    
-    # Modüler ters
+    adj = _adjugate(matrix)
     inv_matrix = []
     for row in adj:
         inv_row = [(det_inv * val) % mod for val in row]
         inv_matrix.append(inv_row)
-    
     return inv_matrix
 
 
+def _parse_key_to_matrix(key: str) -> list:
+    """Key'i NxN tam sayı matrise dönüştür"""
+    raw = (key or "").strip()
+    if not raw:
+        raise ValueError("Key boş olamaz")
+    # Yalnızca sayı, boşluk ve virgül olmalı
+    if not re.fullmatch(r"[-0-9,\s]+", raw):
+        raise ValueError("Key yalnızca tam sayı ve virgül içermelidir (örn: 6,24,1,13,16,10,20,17,15)")
+    try:
+        parts = [int(x.strip()) for x in raw.split(',') if x.strip() != ""]
+    except ValueError:
+        raise ValueError("Key parse hatası. Virgülle ayrılmış tam sayılar girin (örn: 6,24,1,13,16,10,20,17,15)")
+    if not parts:
+        raise ValueError("Key boş olamaz")
+    if not _is_square(len(parts)):
+        raise ValueError("Key uzunluğu mükemmel kare olmalı (4, 9, 16, ...)")
+    size = int(math.isqrt(len(parts)))
+    matrix = []
+    idx = 0
+    for _ in range(size):
+        row = parts[idx : idx + size]
+        matrix.append(row)
+        idx += size
+    return matrix
+
+
 def hill_encrypt(text: str, key: str = None) -> str:
-    """Hill şifresi ile şifrele"""
+    """Hill şifresi ile şifrele (NxN)"""
     if not key:
         raise ValueError("Hill şifresi için key (matris) gereklidir")
-    
-    # Key'i parse et
-    try:
-        parts = [int(x.strip()) for x in key.split(',')]
-        if len(parts) not in [4, 9]:
-            raise ValueError("Key 2x2 (4 değer) veya 3x3 (9 değer) matris olmalıdır")
-        
-        if len(parts) == 4:
-            # 2x2 matris
-            matrix = np.array([[parts[0], parts[1]], 
-                              [parts[2], parts[3]]], dtype=int)
-            block_size = 2
-        else:
-            # 3x3 matris
-            matrix = np.array([[parts[0], parts[1], parts[2]],
-                              [parts[3], parts[4], parts[5]],
-                              [parts[6], parts[7], parts[8]]], dtype=int)
-            block_size = 3
-    except ValueError as e:
-        raise ValueError(f"Key parse hatası: {str(e)}")
-    
+    matrix = _parse_key_to_matrix(key)
+    block_size = len(matrix)
     # Metni temizle
     text_clean = re.sub(r'[^A-Za-z]', '', text.upper())
     if not text_clean:
         return text
-    
     # Eksik karakterleri X ile doldur
     while len(text_clean) % block_size != 0:
         text_clean += 'X'
-    
-    # Şifrele
     encrypted = ""
     for i in range(0, len(text_clean), block_size):
-        block = text_clean[i:i+block_size]
+        block = text_clean[i : i + block_size]
         vector = [ord(c) - ord('A') for c in block]
-        
-        # Matris çarpımı
         result = []
         for row in matrix:
             val = sum(row[j] * vector[j] for j in range(block_size)) % 26
             result.append(val)
-        
-        # Karakterlere çevir
         for val in result:
             encrypted += chr(val + ord('A'))
-    
     return encrypted
 
 
 def hill_decrypt(encrypted_text: str, key: str = None) -> str:
-    """Hill şifresi ile çöz"""
+    """Hill şifresi ile çöz (NxN)"""
     if not key:
         raise ValueError("Hill şifresi için key (matris) gereklidir")
-    
-    # Key'i parse et
-    try:
-        parts = [int(x.strip()) for x in key.split(',')]
-        if len(parts) not in [4, 9]:
-            raise ValueError("Key 2x2 (4 değer) veya 3x3 (9 değer) matris olmalıdır")
-        
-        if len(parts) == 4:
-            # 2x2 matris
-            matrix = [[parts[0], parts[1]], 
-                     [parts[2], parts[3]]]
-            block_size = 2
-        else:
-            # 3x3 matris
-            matrix = [[parts[0], parts[1], parts[2]],
-                     [parts[3], parts[4], parts[5]],
-                     [parts[6], parts[7], parts[8]]]
-            block_size = 3
-    except ValueError as e:
-        raise ValueError(f"Key parse hatası: {str(e)}")
-    
+    matrix = _parse_key_to_matrix(key)
+    block_size = len(matrix)
     # Matrisin modüler tersini bul
     try:
         inv_matrix = _mod_inverse_matrix(matrix, 26)
     except ValueError as e:
         raise ValueError(f"Matris hatası: {str(e)}")
-    
     # Metni temizle
     text_clean = re.sub(r'[^A-Za-z]', '', encrypted_text.upper())
     if not text_clean:
         return encrypted_text
-    
-    # Çöz
     decrypted = ""
     for i in range(0, len(text_clean), block_size):
-        block = text_clean[i:i+block_size]
+        block = text_clean[i : i + block_size]
         vector = [ord(c) - ord('A') for c in block]
-        
-        # Ters matris çarpımı
         result = []
         for row in inv_matrix:
             val = sum(row[j] * vector[j] for j in range(block_size)) % 26
             result.append(val)
-        
-        # Karakterlere çevir
         for val in result:
             decrypted += chr(val + ord('A'))
-    
-    # Son X'leri kaldır (eklenmişse)
     decrypted = decrypted.rstrip('X')
-    
     return decrypted
 

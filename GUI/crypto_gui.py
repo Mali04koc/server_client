@@ -237,9 +237,35 @@ class CryptoGUI:
                                "Rotate Şifresi", "Columnar Transposition", "Hill Şifresi",
                                "GCD Şifresi", "Verman Şifresi", "Otopi Şifresi"]
         
-        if method in key_required_methods and not self.key_entry.get().strip():
+        key_text = self.key_entry.get().strip()
+        if method in key_required_methods and not key_text:
             messagebox.showerror("Hata", f"{method} için key değeri giriniz!")
             return
+        # Hill için özel key formatı kontrolü
+        if method == "Hill Şifresi":
+            import re
+            if not re.fullmatch(r"\s*-?\d+(\s*,\s*-?\d+)+\s*", key_text):
+                messagebox.showerror(
+                    "Hata",
+                    "Hill Şifresi için key formatı: virgülle ayrılmış tam sayılar.\n"
+                    "Örn (3x3): 6,24,1,13,16,10,20,17,15"
+                )
+                return
+        
+        # Hill için özel key doğrulaması (NxN virgülle ayrılmış tam sayılar)
+        if method == "Hill Şifresi":
+            key_str = self.key_entry.get().strip()
+            try:
+                parts = [p.strip() for p in key_str.split(',') if p.strip() != '']
+                numbers = [int(p) for p in parts]
+                if not numbers:
+                    raise ValueError("Key boş olamaz")
+                root = int(len(numbers) ** 0.5)
+                if root * root != len(numbers):
+                    raise ValueError(f"Key uzunluğu kare olmalı (4, 9, 16, ...). Şu an: {len(numbers)} değer")
+            except ValueError as e:
+                messagebox.showerror("Hata", f"Hill anahtarı hatalı.\n\nVirgülle ayrılmış sayılar girin.\nÖrn: 2x2 için 4 sayı: 5,17,8,3\n3x3 için 9 sayı: 6,24,1,13,16,10,20,17,15\n\nDetay: {e}")
+                return
         
         # Gerçek mesaj gönderme
         self.status_label.config(text="Bağlanıyor...", fg='#f39c12')
