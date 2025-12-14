@@ -119,7 +119,8 @@ class CryptoGUI:
             "GCD Şifresi",
             "Verman Şifresi",
             "Otopi Şifresi",
-            "DES"
+            "DES",
+            "RSA"
         ]
         
         # Şifreleme yöntemi seçimi
@@ -194,7 +195,8 @@ class CryptoGUI:
             "GCD Şifresi": "GCD Değeri",
             "Verman Şifresi": "Anahtar",
             "Otopi Şifresi": "Özel Anahtar",
-            "DES": "8 byte key (örn: 8 karakter)"
+            "DES": "8 byte key (örn: 8 karakter)",
+            "RSA": "Asal sayılar p,q (örn: 61, 53)"
         }
         
         if method in key_required_methods:
@@ -239,7 +241,7 @@ class CryptoGUI:
         key_required_methods = ["Sezar Şifresi", "Playfair Şifresi", "Vigenere Şifresi", 
                                "Substitution Şifresi", "Affine Şifresi", "Rail Fence Şifresi",
                                "Rotate Şifresi", "Columnar Transposition", "Hill Şifresi",
-                               "AES", "GCD Şifresi", "Verman Şifresi", "Otopi Şifresi", "DES"]
+                               "AES", "GCD Şifresi", "Verman Şifresi", "Otopi Şifresi", "DES", "RSA"]
         
         key_text = self.key_entry.get().strip()
         if method in key_required_methods and not key_text:
@@ -274,6 +276,65 @@ class CryptoGUI:
                     "DES için key 8 byte (64-bit) olmalı.\n"
                     "Örn: 8 karakterlik bir anahtar girin."
                 )
+                return
+
+                return
+
+        # RSA için format ve asal sayı kontrolü
+        if method == "RSA":
+            if "," not in key_text or len(key_text.split(",")) != 2:
+                messagebox.showerror(
+                    "Hata",
+                    "RSA için 2 adet ASAL sayı girmelisiniz.\n"
+                    "Format: p,q (Virgülle ayrılmış)\n"
+                    "Örn: 61, 53\n"
+                    "Lütfen araya virgül koyarak iki sayı yazın."
+                )
+                return
+            
+            # Detaylı Asal Kontrolü
+            try:
+                parts = [p.strip() for p in key_text.split(',')]
+                p_val, q_val = int(parts[0]), int(parts[1])
+                
+                # Asallık testi için helper
+                def is_prime_check(n):
+                    if n <= 1: return False
+                    if n <= 3: return True
+                    if n % 2 == 0 or n % 3 == 0: return False
+                    i = 5
+                    while i * i <= n:
+                        if n % i == 0 or n % (i + 2) == 0:
+                            return False
+                        i += 6
+                    return True
+
+                if not is_prime_check(p_val):
+                    messagebox.showerror("Hata", f"Girdiğiniz ilk sayı ({p_val}) ASAL DEĞİLDİR.\nRSA algoritması için lütfen asal sayılar kullanın (örn: 17, 19, 23, 61, 53 vs).")
+                    return
+                
+                if not is_prime_check(q_val):
+                    messagebox.showerror("Hata", f"Girdiğiniz ikinci sayı ({q_val}) ASAL DEĞİLDİR.\nRSA algoritması için lütfen asal sayılar kullanın.")
+                    return
+                    
+                if p_val == q_val:
+                    messagebox.showerror("Hata", "p ve q sayıları birbirinden farklı olmalıdır.")
+                    return
+                
+                # Modül büyüklüğü kontrolü (n = p*q)
+                n = p_val * q_val
+                if n < 128: # Standart ASCII en azından desteklenmeli
+                    messagebox.showerror(
+                        "Hata", 
+                        f"Girdiğiniz sayıların çarpımı (Modül n = {n}) çok küçük!\n"
+                        "Bu değerle sadece çok sınırlı karakterler şifrelenebilir.\n"
+                        "Lütfen daha büyük asal sayılar kullanın.\n"
+                        "(Örn: 17 ve 19 -> n=323 yeterli olur)"
+                    )
+                    return
+                    
+            except ValueError:
+                messagebox.showerror("Hata", "Lütfen geçerli tam sayılar giriniz.")
                 return
         
         # Hill için özel key doğrulaması (NxN virgülle ayrılmış tam sayılar)
