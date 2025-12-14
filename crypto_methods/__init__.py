@@ -15,6 +15,7 @@ from .gcd import gcd_encrypt, gcd_decrypt
 from .verman import verman_encrypt, verman_decrypt
 from .otopi import otopi_encrypt, otopi_decrypt
 from .aes import aes_encrypt, aes_decrypt
+from .des import des_encrypt, des_decrypt
 
 # Şifreleme yöntemleri mapping
 ENCRYPT_FUNCTIONS = {
@@ -31,6 +32,7 @@ ENCRYPT_FUNCTIONS = {
     "Verman Şifresi": verman_encrypt,
     "Otopi Şifresi": otopi_encrypt,
     "AES": aes_encrypt,
+    "DES": des_encrypt,
 }
 
 DECRYPT_FUNCTIONS = {
@@ -47,6 +49,7 @@ DECRYPT_FUNCTIONS = {
     "Verman Şifresi": verman_decrypt,
     "Otopi Şifresi": otopi_decrypt,
     "AES": aes_decrypt,
+    "DES": des_decrypt,
 }
 
 def encrypt_message(message: str, method: str, key: str = None) -> str:

@@ -118,7 +118,8 @@ class CryptoGUI:
             "AES",
             "GCD Şifresi",
             "Verman Şifresi",
-            "Otopi Şifresi"
+            "Otopi Şifresi",
+            "DES"
         ]
         
         # Şifreleme yöntemi seçimi
@@ -192,7 +193,8 @@ class CryptoGUI:
             "AES": "16 byte key (örn: 16 karakter)",
             "GCD Şifresi": "GCD Değeri",
             "Verman Şifresi": "Anahtar",
-            "Otopi Şifresi": "Özel Anahtar"
+            "Otopi Şifresi": "Özel Anahtar",
+            "DES": "8 byte key (örn: 8 karakter)"
         }
         
         if method in key_required_methods:
@@ -237,7 +239,7 @@ class CryptoGUI:
         key_required_methods = ["Sezar Şifresi", "Playfair Şifresi", "Vigenere Şifresi", 
                                "Substitution Şifresi", "Affine Şifresi", "Rail Fence Şifresi",
                                "Rotate Şifresi", "Columnar Transposition", "Hill Şifresi",
-                               "AES", "GCD Şifresi", "Verman Şifresi", "Otopi Şifresi"]
+                               "AES", "GCD Şifresi", "Verman Şifresi", "Otopi Şifresi", "DES"]
         
         key_text = self.key_entry.get().strip()
         if method in key_required_methods and not key_text:
@@ -261,6 +263,16 @@ class CryptoGUI:
                     "Hata",
                     "AES için key 16 byte (128-bit) olmalı.\n"
                     "Örn: 16 karakterlik bir anahtar girin."
+                )
+                return
+
+        # DES için key kontrolü
+        if method == "DES":
+            if len(key_text.encode("utf-8")) != 8:
+                messagebox.showerror(
+                    "Hata",
+                    "DES için key 8 byte (64-bit) olmalı.\n"
+                    "Örn: 8 karakterlik bir anahtar girin."
                 )
                 return
         
