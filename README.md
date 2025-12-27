@@ -6,6 +6,7 @@ Bu proje, server-client mimarisi kullanarak mesaj şifreleme işlemleri yapan bi
 
 - Python 3.6 veya üzeri
 - tkinter (genellikle Python ile birlikte gelir)
+- pycryptodome (Library implementasyonları için)
 
 ## 🚀 Projeyi Çalıştırma
 

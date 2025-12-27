@@ -6,6 +6,14 @@ Key Size: 64 bits (56 effective)
 """
 import base64
 
+# Kütüphane İmplementasyonu için
+try:
+    from Crypto.Cipher import DES as LibDES
+    from Crypto.Util.Padding import pad as lib_pad, unpad as lib_unpad
+    HAS_LIB = True
+except ImportError:
+    HAS_LIB = False
+
 # Initial Permutation Table
 IP = [
     58, 50, 42, 34, 26, 18, 10, 2,
@@ -305,7 +313,7 @@ def pkcs7_unpad(data):
          return data # Error or no padding
     return data[:-pad_len]
 
-def des_encrypt(plaintext, key):
+def des_encrypt(plaintext, key, use_lib=False):
     """
     DES Encryption
     plaintext: str
@@ -313,6 +321,14 @@ def des_encrypt(plaintext, key):
     """
     if len(key) != 8:
         raise ValueError("DES key must be 8 bytes long")
+        
+    if use_lib and HAS_LIB:
+        cipher = LibDES.new(key.encode('utf-8'), LibDES.MODE_ECB)
+        padded_text = lib_pad(plaintext.encode('utf-8'), 8)
+        ct_bytes = cipher.encrypt(padded_text)
+        return base64.b64encode(ct_bytes).decode('utf-8')
+
+    # Manual Implementation
         
     # Prepare Key
     key_bytes = key.encode('utf-8')
@@ -342,7 +358,7 @@ def des_encrypt(plaintext, key):
     
     return base64.b64encode(ciphertext_bytes).decode('utf-8')
 
-def des_decrypt(ciphertext_b64, key):
+def des_decrypt(ciphertext_b64, key, use_lib=False):
     """
     DES Decryption
     ciphertext_b64: str (Base64)
@@ -350,6 +366,17 @@ def des_decrypt(ciphertext_b64, key):
     """
     if len(key) != 8:
         raise ValueError("DES key must be 8 bytes long")
+        
+    if use_lib and HAS_LIB:
+        try:
+            encrypted_bytes = base64.b64decode(ciphertext_b64)
+            cipher = LibDES.new(key.encode('utf-8'), LibDES.MODE_ECB)
+            pt = lib_unpad(cipher.decrypt(encrypted_bytes), 8)
+            return pt.decode('utf-8')
+        except Exception as e:
+             raise ValueError(f"Lib Decryption error: {e}")
+
+    # Manual Implementation
         
     # Prepare Key
     key_bytes = key.encode('utf-8')

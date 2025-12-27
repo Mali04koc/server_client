@@ -16,7 +16,9 @@ from .verman import verman_encrypt, verman_decrypt
 from .otopi import otopi_encrypt, otopi_decrypt
 from .aes import aes_encrypt, aes_decrypt
 from .des import des_encrypt, des_decrypt
+from .des import des_encrypt, des_decrypt
 from .rsa import rsa_encrypt, rsa_decrypt
+from .ecc import ecc_encrypt, ecc_decrypt
 
 # Şifreleme yöntemleri mapping
 ENCRYPT_FUNCTIONS = {
@@ -31,10 +33,11 @@ ENCRYPT_FUNCTIONS = {
     "Hill Şifresi": hill_encrypt,
     "GCD Şifresi": gcd_encrypt,
     "Verman Şifresi": verman_encrypt,
-    "Otopi Şifresi": otopi_encrypt,
+    "OTP": otopi_encrypt,
     "AES": aes_encrypt,
     "DES": des_encrypt,
     "RSA": rsa_encrypt,
+    "ECC": ecc_encrypt,
 }
 
 DECRYPT_FUNCTIONS = {
@@ -49,30 +52,38 @@ DECRYPT_FUNCTIONS = {
     "Hill Şifresi": hill_decrypt,
     "GCD Şifresi": gcd_decrypt,
     "Verman Şifresi": verman_decrypt,
-    "Otopi Şifresi": otopi_decrypt,
+    "OTP": otopi_decrypt,
     "AES": aes_decrypt,
     "DES": des_decrypt,
     "RSA": rsa_decrypt,
+    "ECC": ecc_decrypt,
 }
 
-def encrypt_message(message: str, method: str, key: str = None) -> str:
+def encrypt_message(message: str, method: str, key: str = None, **kwargs) -> str:
     """Mesajı şifrele"""
     if method not in ENCRYPT_FUNCTIONS:
         return message  # Bilinmeyen yöntem için orijinal mesajı döndür
     
     encrypt_func = ENCRYPT_FUNCTIONS[method]
     try:
+        # Sadece AES ve DES use_lib destekliyor, diğerleri hata verebilir diye kontrol edebiliriz
+        # ama kwargs kullanımı daha temiz.
+        # Ancak diğer fonksiyonlar kwargs kabul etmiyor olabilir.
+        if method in ["AES", "DES"] and 'use_lib' in kwargs:
+            return encrypt_func(message, key, use_lib=kwargs['use_lib'])
         return encrypt_func(message, key)
     except Exception as e:
         raise ValueError(f"Şifreleme hatası ({method}): {str(e)}")
 
-def decrypt_message(encrypted_message: str, method: str, key: str = None) -> str:
+def decrypt_message(encrypted_message: str, method: str, key: str = None, **kwargs) -> str:
     """Şifreli mesajı çöz"""
     if method not in DECRYPT_FUNCTIONS:
         return encrypted_message  # Bilinmeyen yöntem için orijinal mesajı döndür
     
     decrypt_func = DECRYPT_FUNCTIONS[method]
     try:
+        if method in ["AES", "DES"] and 'use_lib' in kwargs:
+            return decrypt_func(encrypted_message, key, use_lib=kwargs['use_lib'])
         return decrypt_func(encrypted_message, key)
     except Exception as e:
         raise ValueError(f"Şifre çözme hatası ({method}): {str(e)}")

@@ -1,139 +1,130 @@
-"""
-RSA Implementation
-NO external libraries.
-Takes two primes (p, q) as input Key.
-"""
-import random
+from random import randint
 
-def gcd(a, b):
-    """Compute the greatest common divisor of a and b"""
-    while b:
-        a, b = b, a % b
-    return a
+def generate_prime_candidate(length):
+    p = randint(2**(length-1), 2**length - 1)
+    p |= (1 << (length - 1)) | 1
+    return p
 
-def extended_gcd(a, b):
-    """Extended Euclidean Algorithm"""
-    if a == 0:
-        return b, 0, 1
-    else:
-        g, y, x = extended_gcd(b % a, a)
-        return g, x - (b // a) * y, y
+def is_prime(n, k=5):
+    if n == 2 or n == 3: return True
+    if n % 2 == 0: return False
 
-def modinv(a, m):
-    """Compute modular inverse of a modulo m"""
-    g, x, y = extended_gcd(a, m)
-    if g != 1:
-        raise Exception('Modular inverse does not exist')
-    else:
-        return x % m
-
-def is_prime(n):
-    """Check if a number is prime (basic check)"""
-    if n <= 1: return False
-    if n <= 3: return True
-    if n % 2 == 0 or n % 3 == 0: return False
-    i = 5
-    while i * i <= n:
-        if n % i == 0 or n % (i + 2) == 0:
+    r, d = 0, n - 1
+    while d % 2 == 0:
+        r += 1
+        d //= 2
+    for _ in range(k):
+        a = randint(2, n - 2)
+        x = pow(a, d, n)
+        if x == 1 or x == n - 1:
+            continue
+        for _ in range(r - 1):
+            x = pow(x, 2, n)
+            if x == n - 1:
+                break
+        else:
             return False
-        i += 6
     return True
 
-def generate_keypair(p, q):
-    """Generate public and private keys from primes p and q"""
-    if not (is_prime(p) and is_prime(q)):
-        raise ValueError("Both numbers must be prime.")
-    elif p == q:
-        raise ValueError("p and q cannot be equal.")
+def generate_prime_number(length=8):
+    p = 4
+    while not is_prime(p):
+        p = generate_prime_candidate(length)
+    return p
+
+def generate_keypair(p=None, q=None):
+    """Basit RSA Anahtar Üretimi"""
+    # Rastgele asal üretimi (Eğer parametre verilmediyse)
+    if not p: p = generate_prime_number(8)
+    if not q: q = generate_prime_number(8)
+    while p == q: 
+        q = generate_prime_number(8)
     
-    # n = pq
+    # 1. Modül n hesapla
     n = p * q
     
-    # phi = (p-1)(q-1)
+    # 2. Totient hesapla
     phi = (p - 1) * (q - 1)
     
-    # Choose an integer e such that e and phi(n) are coprime
+    # 3. Public exponent e seç (genelde 65537)
     e = 65537
-    if gcd(e, phi) != 1:
-        # If 65537 is not coprime (rare), find another one
-        # Start from 3
-        e = 3
-        while gcd(e, phi) != 1:
-            e += 2
-            
-    # Determine d such that d*e = 1 (mod phi)
-    d = modinv(e, phi)
     
-    # Public key (e, n), Private key (d, n)
+    # 4. Private exponent d hesapla (d * e = 1 mod phi)
+    # Genişletilmiş Öklid (Extended Euclidean)
+    def extended_gcd(a, b):
+        if a == 0:
+            return b, 0, 1
+        else:
+            gcd, x, y = extended_gcd(b % a, a)
+            return gcd, y - (b // a) * x, x
+
+    gcd, x, y = extended_gcd(e, phi)
+    if gcd != 1:
+        raise ValueError("Modular inverse does not exist")
+    else:
+        d = x % phi
+        
     return ((e, n), (d, n))
 
-def rsa_encrypt(message, key_str):
-    """
-    RSA Encrypt
-    key_str: "p, q" (comma separated primes)
-    Output: Space separated integers (e.g., "123 456 789")
-    """
-    try:
-        parts = [int(x.strip()) for x in key_str.split(',')]
-        if len(parts) != 2:
-            raise ValueError("Key must be two comma-separated numbers (p,q)")
-        p, q = parts
-    except ValueError:
-        raise ValueError("Invalid key format. Use: p,q (e.g: 61,53)")
+import ast
 
+def parse_rsa_key(key_str, key_type='public'):
+    """String anahtarı parse et: Public: (e, n), Private: (d, n)"""
     try:
-        public_key, private_key = generate_keypair(p, q)
-    except ValueError as e:
-        raise ValueError(f"Key error: {str(e)}")
-        
-    e, n = public_key
-    
-    # Check if modulus is large enough for characters
-    # Max char code in standard ASCII is 127, extended 255
-    # Unicode chars can be much larger.
-    # Simple block encryption: encrypt each character code
-    
-    encrypted_blocks = []
-    for char in message:
-        m = ord(char)
-        if m >= n:
-            raise ValueError(f"Prime numbers are too small for this message character '{char}' (code {m}). n={n}. Choose larger primes.")
-        
-        c = pow(m, e, n)
-        encrypted_blocks.append(str(c))
-        
-    return " ".join(encrypted_blocks)
-
-def rsa_decrypt(encrypted_msg, key_str):
-    """
-    RSA Decrypt
-    encrypted_msg: Space separated integers
-    key_str: "p, q" (comma separated primes)
-    """
-    try:
-        parts = [int(x.strip()) for x in key_str.split(',')]
-        if len(parts) != 2:
-            raise ValueError("Key must be two comma-separated numbers (p,q)")
-        p, q = parts
-    except ValueError:
-        raise ValueError("Invalid key format. Use: p,q (e.g: 61,53)")
-
-    try:
-        public_key, private_key = generate_keypair(p, q)
-    except ValueError as e:
-        raise ValueError(f"Key error: {str(e)}")
-        
-    d, n = private_key
-    
-    try:
-        blocks = encrypted_msg.strip().split(' ')
-        decrypted_chars = []
-        for block in blocks:
-            if not block: continue
-            c = int(block)
-            m = pow(c, d, n)
-            decrypted_chars.append(chr(m))
+        # Eğer direkt tuple geldiyse (iç kullanım)
+        if isinstance(key_str, tuple):
+            return key_str
             
-        return "".join(decrypted_chars)
+        # String temizliği
+        key_str = str(key_str).strip()
+        
+        # Format: "Public: (e, n), Private: (d, n)"
+        if key_type == 'public':
+            if "Public:" in key_str:
+                start = key_str.find("Public:") + len("Public:")
+                end = key_str.find("Private:") if "Private:" in key_str else len(key_str)
+                tuple_str = key_str[start:end].strip()
+                # Sondaki virgülü temizle
+                if tuple_str.endswith(','): tuple_str = tuple_str[:-1]
+                return ast.literal_eval(tuple_str)
+            elif key_str.startswith("(") and "," in key_str:
+                 return ast.literal_eval(key_str)
+                 
+        elif key_type == 'private':
+            if "Private:" in key_str:
+                start = key_str.find("Private:") + len("Private:")
+                tuple_str = key_str[start:].strip()
+                return ast.literal_eval(tuple_str)
+            elif key_str.startswith("(") and "," in key_str:
+                 return ast.literal_eval(key_str)
+
     except Exception as e:
-         raise ValueError(f"Decryption failed: {str(e)}")
+        raise ValueError(f"RSA Anahtar formatı hatalı: {e}")
+    
+    raise ValueError(f"Uygun {key_type} anahtar bulunamadı.")
+
+def rsa_encrypt(msg, public_key_str):
+    try:
+        e, n = parse_rsa_key(public_key_str, 'public')
+        # Mesajı int'e çevir (basit ascii)
+        # Karakter bazlı şifreleme (Basit yöntem)
+        cipher = [pow(ord(char), e, n) for char in msg]
+        # Listeyi string olarak döndür (virgülle ayrılmış)
+        return str(cipher)
+    except Exception as e:
+        raise ValueError(f"RSA Encrypt Hatası: {e}")
+
+def rsa_decrypt(cipher_str, private_key_str):
+    try:
+        d, n = parse_rsa_key(private_key_str, 'private')
+        # cipher_str string listesi "[123, 456, ...]" formatında gelir
+        cipher = ast.literal_eval(cipher_str)
+        
+        plain = [chr(pow(char, d, n)) for char in cipher]
+        return ''.join(plain)
+    except Exception as e:
+         # Belki liste değil direkt int listesidir
+         if isinstance(cipher_str, list):
+             plain = [chr(pow(char, d, n)) for char in cipher_str]
+             return ''.join(plain)
+         raise ValueError(f"RSA Decrypt Hatası: {e}")
