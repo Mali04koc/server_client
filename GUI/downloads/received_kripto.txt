@@ -1,0 +1,7 @@
+2 li gönderim
+mesajı gönderme süresi ona göre kütüphaneli ve kütüphanesiz farkını anla
+portu değiştirme 
+rsa , eca
+otomatik key üretimi,karşı taraf keyide alıcak o yüzden aes ve desde keye gerek yok
+aesde sbox yok polinom kuralları ile
+

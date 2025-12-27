@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox, scrolledtext, simpledialog
+from tkinter import ttk, messagebox, scrolledtext, simpledialog, filedialog
 import threading
 import socket
 import json
@@ -7,6 +7,7 @@ import time
 from datetime import datetime
 import os
 import sys
+import base64
 
 # Şifreleme yöntemlerini import et (Mevcut yapı)
 try:
@@ -48,6 +49,9 @@ class CryptoChatGUI:
         self.crypto_method = tk.StringVar(value="AES")
         self.key_var = tk.StringVar()
         self.dest_ip = tk.StringVar(value="127.0.0.1")
+        self.download_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'downloads')
+        if not os.path.exists(self.download_dir):
+            os.makedirs(self.download_dir)
         
         # Asimetrik Anahtarlar
         self.my_private_key = None
@@ -191,7 +195,10 @@ class CryptoChatGUI:
         self.msg_entry.bind("<Return>", self.send_message)
         
         send_btn = tk.Button(input_frame, text="GÖNDER", bg='#3498db', fg='white', font=('Arial', 10, 'bold'), command=self.send_message)
-        send_btn.pack(side=tk.RIGHT, padx=10, pady=10)
+        send_btn.pack(side=tk.RIGHT, padx=5, pady=10)
+        
+        attach_btn = tk.Button(input_frame, text="📎 Dosya", bg='#95a5a6', fg='white', font=('Arial', 10, 'bold'), command=self.send_file)
+        attach_btn.pack(side=tk.RIGHT, padx=5, pady=10)
 
     def log(self, message, tag='system'):
         self.chat_display.config(state='normal')
@@ -456,6 +463,55 @@ class CryptoChatGUI:
             display_text = f"[{sender}]\n🔒 {content}\n🔓 {decrypted_text}"
             self.root.after(0, lambda: self.log(display_text, 'received'))
             
+        elif msg_type == 'file_message':
+            sender = msg.get('sender_id', 'Bilinmeyen')
+            filename = msg.get('filename', 'unknown_file')
+            encrypted_content = msg.get('encrypted_content', '')
+            method = msg.get('crypto_method', '')
+            
+            self.root.after(0, lambda: self.log(f"[{sender}] 📎 Dosya Gönderdi: {filename}", 'received'))
+            
+            # Otomatik İndir/Çöz ve Kaydet
+            try:
+                # 1. Key Hazırla
+                decryption_key = None
+                if method in ["RSA", "ECC"]:
+                    if self.my_private_key:
+                        decryption_key = self.my_private_key
+                else:
+                    decryption_key = self.key_var.get()
+                    decryption_key = self._ensure_key_length(decryption_key, method)
+                
+                if decryption_key:
+                    # 2. İçeriği Çöz (Base64 string olarak döner)
+                    decrypted_b64 = "HATA"
+                    if decrypt_message:
+                        try:
+                            # Dosyalar genelde büyük olduğu için kütüphane kullanılması mantıklı
+                            # ama şimdilik mevcut config'e uyalım
+                            use_lib = True if method in ["AES", "DES"] else False
+                            if method in ["AES", "DES"]:
+                                # Lib encryption base64 döner, biz de base64 şifreli veri bekliyoruz
+                                decrypted_b64 = decrypt_message(encrypted_content, method, decryption_key, use_lib=use_lib)
+                            else:
+                                decrypted_b64 = decrypt_message(encrypted_content, method, decryption_key)
+                        except Exception as e:
+                            print(f"File Decrypt Error: {e}")
+                            
+                    # 3. Base64 -> Dosya
+                    try:
+                        file_data = base64.b64decode(decrypted_b64)
+                        save_path = os.path.join(self.download_dir, f"received_{filename}")
+                        with open(save_path, "wb") as f:
+                            f.write(file_data)
+                        
+                        self.root.after(0, lambda: self.log(f"💾 Dosya Kaydedildi: {save_path}", 'system'))
+                    except Exception as e:
+                         self.root.after(0, lambda: self.log(f"❌ Dosya kaydetme hatası: {e}", 'system'))
+
+            except Exception as e:
+                pass
+
         elif msg_type == 'ack':
             # İletildi bilgisi
             count = msg.get('count', 0)
@@ -549,6 +605,70 @@ class CryptoChatGUI:
             
         except Exception as e:
             messagebox.showerror("Gönderim Hatası", f"Server'a ulaşılamadı: {e}")
+
+    def send_file(self):
+        """Dosya Seçip Gönderme"""
+        file_path = filedialog.askopenfilename(title="Gönderilecek Dosyayı Seç")
+        if not file_path: return
+        
+        filename = os.path.basename(file_path)
+        
+        # Dosya limit kontrolü (Örn 5MB)
+        if os.path.getsize(file_path) > 5 * 1024 * 1024:
+             messagebox.showwarning("Uyarı", "Dosya çok büyük! (Max 5MB)")
+             return
+
+        try:
+            # 1. Dosyayı Oku (Binary)
+            with open(file_path, "rb") as f:
+                file_data = f.read()
+            
+            # 2. Base64'e çevir (Transport için)
+            b64_data = base64.b64encode(file_data).decode('utf-8')
+            
+            # 3. Şifrele
+            method = self.crypto_method.get()
+            key = self.key_var.get()
+            encryption_key = key
+            
+            if method in ["RSA", "ECC"]:
+                encryption_key = key # Public Key
+                if not encryption_key:
+                    messagebox.showwarning("Uyarı", "Public Key girilmemiş!")
+                    return
+            else:
+                encryption_key = self._ensure_key_length(key, method)
+                
+            encrypted_content = ""
+            if encrypt_message:
+                use_lib = True if method in ["AES", "DES"] else False # Büyük veri için lib tercih et
+                if method in ["AES", "DES"]:
+                    encrypted_content = encrypt_message(b64_data, method, encryption_key, use_lib=use_lib)
+                else:
+                    encrypted_content = encrypt_message(b64_data, method, encryption_key)
+            
+            # 4. Gönder
+            s_send = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s_send.connect((self.target_ip.get(), int(self.target_port.get())))
+            
+            payload = {
+                'type': 'file_message',
+                'target_ip': self.dest_ip.get(),
+                'sender_username': self.username.get(),
+                'filename': filename,
+                'encrypted_content': encrypted_content,
+                'crypto_method': method,
+                'timestamp': str(datetime.now())
+            }
+            
+            # Büyük verilerde sendall kullanmak daha güvenli
+            s_send.sendall(json.dumps(payload).encode('utf-8'))
+            s_send.close()
+            
+            self.log(f"Sen: [DOSYA] {filename}", 'sent')
+            
+        except Exception as e:
+            messagebox.showerror("Dosya Gönderme Hatası", str(e))
 
 if __name__ == "__main__":
     root = tk.Tk()

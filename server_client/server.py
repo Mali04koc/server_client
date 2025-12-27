@@ -72,18 +72,28 @@ class CryptoServer:
         try:
             client_socket.settimeout(None) # Timeout kapalı, sürekli bağlantı
             
+            buffer = ""
             while self.running:
                 try:
-                    data = client_socket.recv(8192) # Buffer arttırıldı
+                    data = client_socket.recv(4096)
                     if not data:
                         break
                     
-                    try:
-                        message = json.loads(data.decode('utf-8'))
-                        self.process_message(client_socket, client_address, message, client_id)
-                        
-                    except json.JSONDecodeError:
-                        print(f"📨 [{client_id}] JSON hatası")
+                    buffer += data.decode('utf-8')
+                    
+                    while True:
+                        try:
+                            # JSON parse denemesi
+                            message, idx = getattr(json, 'JSONDecoder')().raw_decode(buffer)
+                            
+                            # Başarılı olursa buffer'dan sil
+                            buffer = buffer[idx:].lstrip()
+                            
+                            self.process_message(client_socket, client_address, message, client_id)
+                            
+                        except ValueError:
+                            # Tam bir JSON yoksa devam et (daha fazla veri bekle)
+                            break
                         
                 except socket.error as e:
                     print(f"❌ Socket hatası {client_id}: {e}")
@@ -100,6 +110,7 @@ class CryptoServer:
                 client_socket.close()
             except:
                 pass
+
     
     def process_message(self, client_socket, client_address, message, sender_id):
         """Gelen mesajı işle ve YÖNLENDİR"""
@@ -107,7 +118,7 @@ class CryptoServer:
         
         # print(f"📨 [{sender_id}] İşlem: {message_type}")
         
-        if message_type == 'crypto_message':
+        if message_type == 'crypto_message' or message_type == 'file_message':
             self.handle_relay_message(client_socket, message, sender_id)
         elif message_type == 'register':
             # Client kendi dinlediği portu veya kimliğini bildirebilir
